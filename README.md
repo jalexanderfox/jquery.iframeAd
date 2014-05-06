@@ -7,8 +7,9 @@ This is a plugin to support inserting iframe ads into placeholder dom elements. 
     var strAd = '<scr'+'ipt src="http://ad.doubleclick.net/ADJ/publisher/..."></scr'+'ipt>'
     $('.AdPlaceholderClass').iframeAdLoad(strAd);
 
-##TODO
+##TODO:
 * add css for advertisement label (follows Suit CSS)
 * listen/trigger events
 * convert this to a more agnostic implementation
+* add testing
 * better documentation
