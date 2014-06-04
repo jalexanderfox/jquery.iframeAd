@@ -8,7 +8,7 @@ This plugin is currently in production use on [http://www.healthcentral.com](htt
 
 ##How to use:
     var strAd = '<scr'+'ipt src="http://ad.doubleclick.net/ADJ/publisher/..."></scr'+'ipt>'
-    $('.AdPlaceholderClass').iframeAdLoad(strAd);
+    $('.AdPlaceholderClass').iframeAdLoad({content : strAd});
 
 ##TODO:
 * add css for advertisement label (follows Suit CSS)
