@@ -181,7 +181,7 @@
             // var y_list = [0, 25, 30, 45, 60, 90, 60, 100, 130, 150, 200, 220, 240, 249, 250, 280, 600];
             // var x_list = [0, 100, 120, 160, 150, 195, 200, 300, 336, 468, 655, 728, 1000];
             // getting real about this, let'
-            var y_list = [250, 600];
+            var y_list = [50, 250, 600];
             var x_list = [160, 300];
 
             var d_list = (dimension==='height')?y_list:x_list;
