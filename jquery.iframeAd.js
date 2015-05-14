@@ -15,7 +15,7 @@
 // the semi-colon before the function invocation is a safety
 // net against concatenated scripts and/or other plugins
 // that are not closed properly.
-;(function ( $, window, document, undefined ) {
+;(function ( $, window, document, debug, undefined ) {
 
     // undefined is used here as the undefined global
     // variable in ECMAScript 3 and is mutable (i.e. it can
@@ -57,6 +57,22 @@
         this.init();
     };
 
+    Plugin.prototype.debug = function(bugger) {
+        if ( this.options.debug === true || debug === true ) {
+            if (bugger === undefined) {
+                // DEBUG
+                console.log(this.element);
+                console.log(this.options);
+                // DEBUG
+            } else {
+                console.log(bugger);
+            }
+
+        }
+    };
+
+    Plugin.prototype.log = Plugin.prototype.debug;
+
     Plugin.prototype.updateOptions = function( options ) {
         // jQuery has an extend method that merges the
         // contents of two or more objects, storing the
@@ -97,10 +113,23 @@
         return v > 4 ? v : undef;
     }());
 
+    // var randomString = function(length, chars) {
+    //     var mask = '';
+    //     if (chars.indexOf('a') > -1) mask += 'abcdefghijklmnopqrstuvwxyz';
+    //     if (chars.indexOf('A') > -1) mask += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    //     if (chars.indexOf('#') > -1) mask += '0123456789';
+    //     if (chars.indexOf('!') > -1) mask += '~`!@#$%^&*()_+-={}[]:";\'<>?,./|\\';
+    //     var result = '';
+    //     for (var i = length; i > 0; --i) result += mask[Math.round(Math.random() * (mask.length - 1))];
+    //     return result;
+    // };
+
     Plugin.prototype.loadIframeAd = function() {
 
+        var that                = this;
         var options             = this.options;
         var iframeAdPlaceholder = this.element;
+	//iframeAdPlaceholder.id  = iframeAdPlaceholder.id || randomString(16, 'aA'); //if placeholder doesn't have an id, give it a randome one
         var id                  = iframeAdPlaceholder.id;
         var content             = options.content;
 
@@ -114,6 +143,9 @@
         var max_width  = width;
         var max_height = height;
 
+	var _isFlexAd = function() {
+	    return options.display && options.display === 'flex';
+	};
 
         var iframe_style = 'border:none;';
 
@@ -121,8 +153,8 @@
             //id: 'my_iframe',
             //name:'my_iframe',
             src: 'about:blank',
-            width: width,
-            height: height,
+	    width: _isFlexAd() ? '' : width,
+	    height: _isFlexAd() ? '' : height,
             scrolling: 'no',
             marginWidth:0,
             marginHeight:0,
@@ -161,10 +193,6 @@
             $(iframe_wrap).addClass('is-labelOff');
         };
 
-        var _isFlexAd = function() {
-            return options.display && options.display === 'flex';
-        };
-
         if(_isFlexAd()) {
             // hide until we know the dimensions of the ad
             //_offScreen( iframe_wrap );
@@ -177,12 +205,12 @@
         // because the child window cannot be trusted for getting a 100% accurate height
         // we must check the child provided height against a list of known heights and
         // set the parent iframe height to a known ad height.
-        var _findDimension = function(dimension, content_dim) {
+        var _findAdDimension = function(dimension, content_dim) {
             // var y_list = [0, 25, 30, 45, 60, 90, 60, 100, 130, 150, 200, 220, 240, 249, 250, 280, 600];
             // var x_list = [0, 100, 120, 160, 150, 195, 200, 300, 336, 468, 655, 728, 1000];
             // getting real about this, let'
-            var y_list = [50, 250, 600];
-            var x_list = [160, 300];
+            var y_list = [50, 250, 600, 1050]; // 1050 for aol devil ad support
+            var x_list = [160, 300, 320];
 
             var d_list = (dimension==='height')?y_list:x_list;
             var closest_dim = null;
@@ -199,60 +227,124 @@
 
 
         var _resizeIframe = function() {
-            //console.log(iframe_content.document.body.offsetHeight);
-            //console.log(iframe_content.document.body.offsetWidth);
-            var iframe_content_width  = _findDimension('width', iframe_content.document.body.offsetWidth);
-            var iframe_content_height = _findDimension('height', iframe_content.document.body.offsetHeight);
-            var width                 = (iframe_content_width > max_width) ? max_width : iframe_content_width;
-            var height                = (iframe_content_height > max_height) ? max_height : iframe_content_height;
+            var width = 0;
+            var height = 0;
+
+            height = iframe_content.document.body.offsetHeight;
+            width  = iframe_content.document.body.offsetWidth;
+            that.log('iframe_content.document.body.offsetWidth', iframe_content.document.body.offsetWidth);
+
+            // if iframe dimensions are 0, the creative is likely absolute positioned and does not take up space in the flow
+            // we still need to find the dimensions of the ad, so we serach for dimensions of a child elements in the iframe document
+            if(height === 0 || width === 0) {
+                height = _findGreatestChildDimension(iframe_wrap, 'outerHeight');
+                width = _findGreatestChildDimension(iframe_wrap, 'outerWidth');
+            }
+
+            // from the demensions, find the ad specific dimensions (Snap to predefined ad dimensions)
+            height = _findAdDimension('height', height);
+            width  = _findAdDimension('width', width);
+
+            // set the iframe dimensions
             iframe.height = height;
             iframe.width  = width;
-            // Allowing for the container with label to be set based on its inner content and outer container
-            // iframe_wrap.style.height = height + 'px';
-            // iframe_wrap.style.width  = width + 'px';
+
+            // set the iframe wrapper to the same dimensions
+            $(iframe_wrap).css('height', height).css('width', width);
+
+            // set the iframe placeholder height and width accordingly
+	    $(iframeAdPlaceholder).css('height', height).css('width', width);
+
 
             //_onScreen( iframe_wrap );
             _labelOn();
 
-            //console.log(iframe.name + ' = loaded - width = ' + width + ' height = ' + height);
+            //that.log(iframe.name + ' = loaded - width = ' + width + ' height = ' + height);
         };
 
         var _getHTML = function() {
 
-            if(options.fn && typeof(options.fn)){
-                content = options.fn(options.args);
+            if(options.fn){
+                if(options.fnContext) {
+                    content = options.fn.call(options.fnContext, options.args);
+                } else {
+                    content = options.fn(options.args);
+                }
             }
 
             var css  = '<style>*{padding:0;margin:0;}html,body{overflow:hidden;}<\/style>';
-            var head = '<head>'+css+'</head>';
+            var script = '<script>inDapIF = true;<\/script>';
+            var head = '<head>'+css+script+'</head>';
             var body = '<body>'+content+'</body>';
             var html = '<!DOCTYPE html>'+head+body+'</html>';
             return html;
         };
 
         // polling the height seems to be the most accurate way to get the height of the iframe, at this point.
-        var _pollHeight = function() {
-            //console.log('polling...');
+	// var _pollHeight = function() {
+	//     //that.log('polling...');
+	//     var height     = 0;
+	//     var time       = 66;
+	//     var max_cycles = 106; //106@66ms approx 7 seconds. for the ad to load before we call it quits on trying to resize the iframe.
+	//     var cycles     = 0;
+	//     var pollingComplete =
+	//         function(){
+	//             _resizeIframe();
+	//             clearInterval(interval);
+	//             jQuery.waypoints('refresh');
+	//         };
+	//     var interval  =
+	//     setInterval(
+	//         function(){
+	//             var content_height = iframe_content.document.body.offsetHeight;
+	//             //that.log('content_height = ' + content_height);
+	//             if( cycles === max_cycles ) {
+	//                 pollingComplete();
+	//             }
+
+	//             if( content_height !== 0 ) {
+	//                 if( height !== content_height ) {
+	//                     height = content_height;
+	//                     max_cycles++;
+	//                 } else {
+	//                     pollingComplete();
+	//                 }
+	//             }
+
+	//             cycles++;
+
+	//         },
+	//         time
+	//     );
+	// };
+
+	// polling the height seems to be the most accurate way to get the height of the iframe, at this point.
+	var _pollDimensions = function() {
+            //that.log('polling...');
             var height     = 0;
-            var time       = 66;
-            var max_cycles = 106; //106@66ms approx 7 seconds. for the ad to load before we call it quits on trying to resize the iframe.
+	    var width      = 0;
+	    var time       = 500;
+	    var max_cycles = 12; //106@66ms approx 7 seconds. for the ad to load before we call it quits on trying to resize the iframe.
             var cycles     = 0;
             var pollingComplete =
                 function(){
                     _resizeIframe();
                     clearInterval(interval);
+                    jQuery.waypoints('refresh');
                 };
             var interval  =
             setInterval(
                 function(){
-                    var content_height = iframe_content.document.body.offsetHeight;
-                    //console.log('content_height = ' + content_height);
+		    var content_height = _findGreatestChildDimension(iframe_wrap, 'outerHeight');
+		    var content_width = _findGreatestChildDimension(iframe_wrap, 'outerWidth');
+                    //that.log('content_height = ' + content_height);
                     if( cycles === max_cycles ) {
                         pollingComplete();
                     }
 
-                    if( content_height !== 0 ) {
-                        if( height !== content_height ) {
+		    if( content_height !== 0 && content_width !== 0 ) {
+			if( height !== content_height || width !== content_width ) {
+			    width = content_width;
                             height = content_height;
                             max_cycles++;
                         } else {
@@ -267,19 +359,35 @@
             );
         };
 
+        var _findGreatestChildDimension = function(element, dim) {
+            var size = 0,
+                elements = $(element).find("iframe, div");
+            elements.each(function(){
+                size = $(this)[dim]() > size ? $(this)[dim]() : size;
+            });
+            return size;
+        };
+
         // if multiple calls are made on the same element...
         if (iframe_content === null) {
             return;
         }
 
         // if this is a flex ad, setup the on load event handler so we can adjust the height on load
+        var _iframeLoadCallback = function(){
+            _resizeIframe();
+	    _pollDimensions();
+            that.debug();
+        };
+
         if(_isFlexAd()) {
             //addEvent(iframe_content, 'load', function(){
-            $(iframe).on('load', function(){
-                //_resizeIframe();
-                _pollHeight();
-            });
-
+            //backwards capability with 1.4.4 (UCB)
+            if(jQuery.fn.on) {
+                $(iframe).on('load', _iframeLoadCallback);
+            } else {
+                $(iframe).load(_iframeLoadCallback);
+            }
         }
 
 
@@ -303,7 +411,8 @@
         //     iframe_content.document.close();
         // }
 
-      return iframe;
+        that.debug();
+        return iframe;
     };
 
     Plugin.prototype.refreshIframeAd = function() {
@@ -360,7 +469,11 @@
 
 
 
-})( jQuery, window, document );
+})( jQuery, window, document, false ); // !!IMPOTANT don't forget to set this back to false before you commit!!
+// turn on and off global debug with last value ( true | false )
+
+
+
 
 
 
